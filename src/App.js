@@ -15,7 +15,39 @@ const AIAuditGenerator = () => {
     currentTools: [],
     budget: '',
     timeline: '',
-    jurisdiction: 'US'
+    jurisdiction: 'US',
+    // Template 1 - Stakeholder Interview (Tiers 1-3)
+    stakeholderInterview: {
+      roleTeamOverview: '',
+      teamGoalsKPIs: '',
+      teamStructure: '',
+      criticalProcesses: '',
+      workflowBottlenecks: '',
+      timeConsumingTasks: '',
+      mainSoftwareTools: '',
+      technologyFrustrations: '',
+      outsideProcesses: '',
+      biggestChallenges: '',
+      magicWandProblem: '',
+      efficiencyBlockers: '',
+      improvementOpportunities: '',
+      technologyAdoption: ''
+    },
+    // Template 2 - End-User Interview (Tier 3 only)
+    endUserInterview: {
+      typicalDayWeek: '',
+      commonDailyTasks: '',
+      coreVsAdminTime: '',
+      taskStepsWalkthrough: '',
+      mostManualTimeConsumingPart: '',
+      informationNeeded: '',
+      primaryDailySoftware: '',
+      toolFrustrations: '',
+      dataDoubleEntry: '',
+      boringRepetitiveTasks: '',
+      assistantTasks: '',
+      workTrackingReporting: ''
+    }
   });
   
   const [voiceFiles, setVoiceFiles] = useState([]);
@@ -336,6 +368,51 @@ const AIAuditGenerator = () => {
       };
       reader.readAsText(file);
     });
+  };
+
+  // Add this function to handle auto-filling from voice data
+  const autoFillFromVoiceData = () => {
+    const completedFiles = voiceFiles.filter(f => f.status === 'completed');
+    if (completedFiles.length === 0) return;
+
+    // Combine all extracted data
+    const allExtractedData = completedFiles.map(f => f.extractedData);
+    
+    // Auto-fill basic pain points (already implemented)
+    const allPainPoints = allExtractedData.flatMap(data => data?.painPoints || []);
+    
+    // Auto-fill stakeholder interview fields (basic mapping)
+    const combinedChallenges = allPainPoints.join('; ');
+    const extractedTools = allExtractedData.flatMap(data => data?.metrics?.currentTools || []).join(', ');
+    
+    setClientData(prev => ({
+      ...prev,
+      painPoints: [...new Set([...prev.painPoints, ...allPainPoints])],
+      stakeholderInterview: {
+        ...prev.stakeholderInterview,
+        biggestChallenges: prev.stakeholderInterview.biggestChallenges || combinedChallenges,
+        mainSoftwareTools: prev.stakeholderInterview.mainSoftwareTools || extractedTools,
+        magicWandProblem: prev.stakeholderInterview.magicWandProblem || allPainPoints[0] || ''
+      }
+    }));
+
+    // Show success notification
+    const notification = document.createElement('div');
+    notification.innerHTML = `
+      <div style="position: fixed; top: 20px; right: 20px; background: #10B981; color: white; 
+                  padding: 16px 24px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+                  z-index: 9999; display: flex; align-items: center; gap: 8px;">
+        <span style="font-size: 16px;">✅</span>
+        <span>Interview templates auto-filled from voice data!</span>
+      </div>
+    `;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+      if (document.body.contains(notification)) {
+        document.body.removeChild(notification);
+      }
+    }, 3000);
   };
 
   const applyVoiceData = (extractedData) => {
@@ -955,25 +1032,35 @@ const calculatePaybackMonths = () => {
             {/* Client Discovery */}
             {activeTab === 'discovery' && (
               <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Client Information</h3>
+                {/* Mandatory Basic Information Section */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="bg-red-100 text-red-800 text-xs font-medium px-2 py-1 rounded mr-2">Required</span>
+                    Basic Client Information
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Company Name <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="text"
                         value={clientData.company}
                         onChange={(e) => setClientData(prev => ({ ...prev, company: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600"
                         placeholder="Enter company name"
+                        required
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Industry</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Industry <span className="text-red-500">*</span>
+                      </label>
                       <select
                         value={clientData.industry}
                         onChange={(e) => setClientData(prev => ({ ...prev, industry: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600"
+                        required
                       >
                         <option value="">Select industry</option>
                         <option value="ecommerce">E-commerce</option>
@@ -986,11 +1073,14 @@ const calculatePaybackMonths = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Team Size</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Team Size <span className="text-red-500">*</span>
+                      </label>
                       <select
                         value={clientData.employees}
                         onChange={(e) => setClientData(prev => ({ ...prev, employees: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600"
+                        required
                       >
                         <option value="">Select team size</option>
                         <option value="1">Solopreneur (Just me)</option>
@@ -1001,11 +1091,14 @@ const calculatePaybackMonths = () => {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Budget Range</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Budget Range <span className="text-red-500">*</span>
+                      </label>
                       <select
                         value={clientData.budget}
                         onChange={(e) => setClientData(prev => ({ ...prev, budget: e.target.value }))}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600"
+                        required
                       >
                         <option value="">Select budget</option>
                         <option value="under-1k">Under $1K</option>
@@ -1016,21 +1109,541 @@ const calculatePaybackMonths = () => {
                       </select>
                     </div>
                   </div>
+
+                  <div className="mt-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Key Pain Points <span className="text-red-500">*</span>
+                    </label>
+                    <textarea
+                      value={clientData.painPoints.join('\n')}
+                      onChange={(e) => setClientData(prev => ({ 
+                        ...prev, 
+                        painPoints: e.target.value.split('\n').filter(p => p.trim()) 
+                      }))}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600"
+                      placeholder="Enter each pain point on a new line..."
+                      required
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Key Pain Points</label>
-                  <textarea
-                    value={clientData.painPoints.join('\n')}
-                    onChange={(e) => setClientData(prev => ({ 
-                      ...prev, 
-                      painPoints: e.target.value.split('\n').filter(p => p.trim()) 
-                    }))}
-                    rows={4}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600"
-                    placeholder="Enter each pain point on a new line..."
-                  />
+                {/* Template 1: Stakeholder Interview (All Tiers) */}
+                <div className="bg-white border border-gray-200 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                    <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded mr-2">Optional</span>
+                    Template 1: Stakeholder Interview (30,000-Foot View)
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">High-level business goals, team structures, and strategic challenges</p>
+                  
+                  {/* Role & Team Overview */}
+                  <div className="mb-6">
+                    <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                      <span className="w-6 h-6 bg-yellow-100 text-yellow-800 rounded-full flex items-center justify-center text-xs mr-2">1</span>
+                      Role & Team Overview
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Role and team's primary responsibilities
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.roleTeamOverview}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, roleTeamOverview: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="Describe your role and your team's primary responsibilities"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Main goals or KPIs this quarter/year
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.teamGoalsKPIs}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, teamGoalsKPIs: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="What are the main goals or KPIs your team is responsible for?"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Team structure (who reports to whom)
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.teamStructure}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, teamStructure: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="Walk me through your team's structure"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Core Processes & Workflow */}
+                  <div className="mb-6">
+                    <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                      <span className="w-6 h-6 bg-yellow-100 text-yellow-800 rounded-full flex items-center justify-center text-xs mr-2">2</span>
+                      Core Processes & Workflow
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Most critical processes your team manages
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.criticalProcesses}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, criticalProcesses: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="What are the most critical processes your team manages?"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Biggest bottlenecks or delays in workflow
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.workflowBottlenecks}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, workflowBottlenecks: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="Where do you see the biggest bottlenecks or delays?"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Tasks that consume the most man-hours or resources
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.timeConsumingTasks}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, timeConsumingTasks: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="Which tasks seem to consume the most resources?"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tools & Technology */}
+                  <div className="mb-6">
+                    <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                      <span className="w-6 h-6 bg-yellow-100 text-yellow-800 rounded-full flex items-center justify-center text-xs mr-2">3</span>
+                      Tools & Technology
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Main software systems or tools your team relies on
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.mainSoftwareTools}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, mainSoftwareTools: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="What are the main software systems or tools your team relies on?"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Biggest frustrations with current technology stack
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.technologyFrustrations}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, technologyFrustrations: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="What are your biggest frustrations with your current technology stack?"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Important processes outside main software (spreadsheets, email, manual)
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.outsideProcesses}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, outsideProcesses: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="Are there important processes that happen outside of your main software?"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pain Points & Strategic Challenges */}
+                  <div className="mb-6">
+                    <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                      <span className="w-6 h-6 bg-yellow-100 text-yellow-800 rounded-full flex items-center justify-center text-xs mr-2">4</span>
+                      Pain Points & Strategic Challenges
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Biggest challenges your team is facing right now
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.biggestChallenges}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, biggestChallenges: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="What are the biggest challenges your team is facing right now?"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          One problem you would solve overnight with a magic wand
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.magicWandProblem}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, magicWandProblem: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="If you had a magic wand, what is the one problem you would solve overnight?"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          What prevents your team from being more efficient or effective
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.efficiencyBlockers}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, efficiencyBlockers: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="What do you feel is preventing your team from being more efficient?"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Future Vision */}
+                  <div className="mb-6">
+                    <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                      <span className="w-6 h-6 bg-yellow-100 text-yellow-800 rounded-full flex items-center justify-center text-xs mr-2">5</span>
+                      Future Vision
+                    </h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Biggest opportunities for improvement in your department
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.improvementOpportunities}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, improvementOpportunities: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="Where do you see the biggest opportunities for improvement?"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          How your team responds to new technology and adoption factors
+                        </label>
+                        <textarea
+                          value={clientData.stakeholderInterview.technologyAdoption}
+                          onChange={(e) => setClientData(prev => ({
+                            ...prev,
+                            stakeholderInterview: { ...prev.stakeholderInterview, technologyAdoption: e.target.value }
+                          }))}
+                          rows={2}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                          placeholder="How does your team generally respond to new technology?"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Template 2: End-User Interview (Tier 3 Only) */}
+                {selectedTier === 3 && (
+                  <div className="bg-white border border-gray-200 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                      <span className="bg-purple-100 text-purple-800 text-xs font-medium px-2 py-1 rounded mr-2">Tier 3 Only</span>
+                      Template 2: End-User Interview (On-the-Ground Reality)
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">Detailed daily tasks and specific operational challenges</p>
+                    
+                    {/* Daily Role & Responsibilities */}
+                    <div className="mb-6">
+                      <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                        <span className="w-6 h-6 bg-purple-100 text-purple-800 rounded-full flex items-center justify-center text-xs mr-2">1</span>
+                        Daily Role & Responsibilities
+                      </h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Typical day or week in your role
+                          </label>
+                          <textarea
+                            value={clientData.endUserInterview.typicalDayWeek}
+                            onChange={(e) => setClientData(prev => ({
+                              ...prev,
+                              endUserInterview: { ...prev.endUserInterview, typicalDayWeek: e.target.value }
+                            }))}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                            placeholder="Can you walk me through a typical day or week in your role?"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            1-3 most common tasks performed every day
+                          </label>
+                          <textarea
+                            value={clientData.endUserInterview.commonDailyTasks}
+                            onChange={(e) => setClientData(prev => ({
+                              ...prev,
+                              endUserInterview: { ...prev.endUserInterview, commonDailyTasks: e.target.value }
+                            }))}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                            placeholder="What are the 1-3 most common tasks you perform every day?"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Time spent on core responsibilities vs administrative tasks (%)
+                          </label>
+                          <input
+                            type="text"
+                            value={clientData.endUserInterview.coreVsAdminTime}
+                            onChange={(e) => setClientData(prev => ({
+                              ...prev,
+                              endUserInterview: { ...prev.endUserInterview, coreVsAdminTime: e.target.value }
+                            }))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                            placeholder="e.g., 60% core work, 40% admin tasks"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step-by-Step Process Deep Dive */}
+                    <div className="mb-6">
+                      <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                        <span className="w-6 h-6 bg-purple-100 text-purple-800 rounded-full flex items-center justify-center text-xs mr-2">2</span>
+                        Step-by-Step Process Deep Dive
+                      </h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Exact steps to complete a specific, common task
+                          </label>
+                          <textarea
+                            value={clientData.endUserInterview.taskStepsWalkthrough}
+                            onChange={(e) => setClientData(prev => ({
+                              ...prev,
+                              endUserInterview: { ...prev.endUserInterview, taskStepsWalkthrough: e.target.value }
+                            }))}
+                            rows={3}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                            placeholder="Walk me through the exact steps to complete [specific task like 'onboard a new client' or 'process an invoice']"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Most manual or time-consuming part of that process
+                          </label>
+                          <textarea
+                            value={clientData.endUserInterview.mostManualTimeConsumingPart}
+                            onChange={(e) => setClientData(prev => ({
+                              ...prev,
+                              endUserInterview: { ...prev.endUserInterview, mostManualTimeConsumingPart: e.target.value }
+                            }))}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                            placeholder="Which part of that process is the most manual or takes the most time?"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Information needed and where you get it from
+                          </label>
+                          <textarea
+                            value={clientData.endUserInterview.informationNeeded}
+                            onChange={(e) => setClientData(prev => ({
+                              ...prev,
+                              endUserInterview: { ...prev.endUserInterview, informationNeeded: e.target.value }
+                            }))}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                            placeholder="What information do you need to find or reference, and where do you get it from?"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Tools & Frustrations */}
+                    <div className="mb-6">
+                      <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                        <span className="w-6 h-6 bg-purple-100 text-purple-800 rounded-full flex items-center justify-center text-xs mr-2">3</span>
+                        Tools & Frustrations
+                      </h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Software you spend most of your day working in
+                          </label>
+                          <textarea
+                            value={clientData.endUserInterview.primaryDailySoftware}
+                            onChange={(e) => setClientData(prev => ({
+                              ...prev,
+                              endUserInterview: { ...prev.endUserInterview, primaryDailySoftware: e.target.value }
+                            }))}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                            placeholder="What software do you spend most of your day working in?"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Most frustrating aspects of the tools you use
+                          </label>
+                          <textarea
+                            value={clientData.endUserInterview.toolFrustrations}
+                            onChange={(e) => setClientData(prev => ({
+                              ...prev,
+                              endUserInterview: { ...prev.endUserInterview, toolFrustrations: e.target.value }
+                            }))}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                            placeholder="What do you find most frustrating about the tools you have to use?"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Double-entry of data or copying-pasting between systems
+                          </label>
+                          <textarea
+                            value={clientData.endUserInterview.dataDoubleEntry}
+                            onChange={(e) => setClientData(prev => ({
+                              ...prev,
+                              endUserInterview: { ...prev.endUserInterview, dataDoubleEntry: e.target.value }
+                            }))}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                            placeholder="Is there any double-entry of data or copying-and-pasting between different systems?"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Pain Points & Wishlist */}
+                    <div className="mb-6">
+                      <h4 className="font-medium text-gray-900 mb-3 flex items-center">
+                        <span className="w-6 h-6 bg-purple-100 text-purple-800 rounded-full flex items-center justify-center text-xs mr-2">4</span>
+                        Pain Points & Wishlist
+                      </h4>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Most boring or repetitive part of your job
+                          </label>
+                          <textarea
+                            value={clientData.endUserInterview.boringRepetitiveTasks}
+                            onChange={(e) => setClientData(prev => ({
+                              ...prev,
+                              endUserInterview: { ...prev.endUserInterview, boringRepetitiveTasks: e.target.value }
+                            }))}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                            placeholder="What is the most boring or repetitive part of your job?"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Tasks you would immediately give to an assistant
+                          </label>
+                          <textarea
+                            value={clientData.endUserInterview.assistantTasks}
+                            onChange={(e) => setClientData(prev => ({
+                              ...prev,
+                              endUserInterview: { ...prev.endUserInterview, assistantTasks: e.target.value }
+                            }))}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                            placeholder="If you had an assistant, what tasks would you give them immediately?"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            How you currently track work or report progress
+                          </label>
+                          <textarea
+                            value={clientData.endUserInterview.workTrackingReporting}
+                            onChange={(e) => setClientData(prev => ({
+                              ...prev,
+                              endUserInterview: { ...prev.endUserInterview, workTrackingReporting: e.target.value }
+                            }))}
+                            rows={2}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600 text-sm"
+                            placeholder="How do you currently track your work or report on your progress?"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Auto-fill from Voice Files Button */}
+                {voiceFiles.length > 0 && voiceFiles.some(f => f.status === 'completed') && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-900 mb-2">Auto-fill from Voice Files</h4>
+                    <p className="text-sm text-blue-700 mb-3">
+                      You have {voiceFiles.filter(f => f.status === 'completed').length} processed voice file(s). 
+                      Auto-fill interview questions with extracted information.
+                    </p>
+                    <button
+                      onClick={() => autoFillFromVoiceData()}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                    >
+                      Auto-fill Interview Templates
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
