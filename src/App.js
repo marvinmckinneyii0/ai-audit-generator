@@ -290,7 +290,23 @@ const AIAuditGenerator = () => {
       4. Monitoring and maintenance requirements
       5. Technical debt mitigation during deployment
       6. Actionable insights generation from model outputs
-      Focus on sustainable, long-term implementation approaches.`
+      Focus on sustainable, long-term implementation approaches.`,
+      
+      'compliance-eu': `Research EU compliance requirements for ${clientData.industry} companies implementing AI solutions. Focus on:
+      1. GDPR compliance for AI data processing
+      2. EU AI Act requirements and risk classifications
+      3. Industry-specific regulations (${clientData.industry})
+      4. Data governance best practices
+      5. Current regulatory developments and enforcement trends
+      Provide specific, actionable compliance recommendations.`,
+      
+      'compliance-us': `Research US compliance requirements for ${clientData.industry} companies implementing AI solutions. Focus on:
+      1. Federal and state privacy law compliance
+      2. Industry-specific regulations (${clientData.industry === 'healthcare' ? 'HIPAA, FDA' : clientData.industry === 'finance' ? 'SOX, PCI DSS, GLBA' : 'sector-specific rules'})
+      3. AI/ML regulatory guidance and best practices
+      4. Algorithmic accountability requirements
+      5. Emerging state AI legislation
+      Provide specific, actionable compliance recommendations.`
     };
 
     try {
@@ -696,34 +712,365 @@ const AIAuditGenerator = () => {
   const generateComplianceScores = () => {
     const isEU = clientData.jurisdiction === 'EU';
     const isUS = clientData.jurisdiction === 'US';
+    const isCA = clientData.jurisdiction === 'CA';
+    const isUK = clientData.jurisdiction === 'UK';
     
+    // Determine data types based on industry and inputs
+    const dataTypes = [];
+    if (clientData.stakeholderInterview.mainSoftwareTools?.toLowerCase().includes('crm') ||
+        clientData.stakeholderInterview.processData?.toLowerCase().includes('customer')) {
+      dataTypes.push('Customer PII');
+    }
+    if (clientData.industry === 'healthcare') {
+      dataTypes.push('Health Records', 'Biometric Data');
+    }
+    if (clientData.industry === 'finance') {
+      dataTypes.push('Financial Records', 'Transaction Data');
+    }
+    if (clientData.stakeholderInterview.processData?.toLowerCase().includes('employee') ||
+        clientData.stakeholderInterview.teamStructure) {
+      dataTypes.push('Employee Data');
+    }
+    if (clientData.currentTools.some(tool => tool.toLowerCase().includes('analytics'))) {
+      dataTypes.push('Behavioral Analytics');
+    }
+    if (dataTypes.length === 0) {
+      dataTypes.push('General Business Data');
+    }
+    
+    // Enhanced compliance scoring based on jurisdiction
     if (isEU) {
+      const gdprScore = calculateGDPRScore();
+      const aiActScore = calculateAIActScore();
+      const industryScore = calculateIndustrySpecificScore();
+      const overallRisk = Math.round((100 - gdprScore + 100 - aiActScore + 100 - industryScore) / 3);
+      
       setComplianceScores({
         type: 'EU',
-        gdprScore: 73,
-        aiActScore: 45,
-        overallRisk: 58,
-        riskTier: 'Moderate',
-        recommendations: [
-          'Implement GDPR-compliant consent management',
-          'Establish AI Act compliance documentation',
-          'Create data subject rights response procedures'
+        jurisdiction: 'European Union',
+        gdprScore,
+        aiActScore,
+        industryScore,
+        overallRisk,
+        riskTier: overallRisk < 30 ? 'Low' : overallRisk < 60 ? 'Moderate' : 'High',
+        regulations: ['GDPR', 'EU AI Act', ...(clientData.industry === 'healthcare' ? ['EU MDR'] : []),
+                      ...(clientData.industry === 'finance' ? ['MiFID II', 'PSD2'] : [])],
+        dataTypes,
+        complianceGaps: identifyComplianceGaps('EU'),
+        recommendations: generateEURecommendations(),
+        nextSteps: [
+          'Conduct comprehensive GDPR data mapping exercise',
+          'Perform AI Act risk classification assessment',
+          'Implement privacy-by-design principles',
+          'Establish DPO role or equivalent oversight',
+          'Create incident response and breach notification procedures'
         ]
       });
     } else if (isUS) {
+      const piiScore = calculateUSPrivacyScore();
+      const hipaaScore = clientData.industry === 'healthcare' ? calculateHIPAAScore() : 0;
+      const industryScore = calculateIndustrySpecificScore();
+      const overallRisk = Math.round(
+        (100 - piiScore + (hipaaScore > 0 ? 100 - hipaaScore : 0) + 100 - industryScore) / 
+        (hipaaScore > 0 ? 3 : 2)
+      );
+      
       setComplianceScores({
         type: 'US',
-        piiScore: 42,
-        hipaaScore: clientData.industry?.includes('health') ? 68 : 0,
-        overallRisk: clientData.industry?.includes('health') ? 55 : 42,
-        riskTier: 'Moderate',
-        recommendations: [
-          'Enhance PII protection protocols',
-          'Implement data breach response procedures',
-          'Establish third-party vendor assessments'
+        jurisdiction: 'United States',
+        piiScore,
+        hipaaScore,
+        industryScore,
+        overallRisk,
+        riskTier: overallRisk < 30 ? 'Low' : overallRisk < 60 ? 'Moderate' : 'High',
+        regulations: [
+          'State Privacy Laws (CCPA/CPRA, etc.)',
+          ...(clientData.industry === 'healthcare' ? ['HIPAA', 'FDA Regulations'] : []),
+          ...(clientData.industry === 'finance' ? ['SOX', 'GLBA', 'PCI DSS'] : []),
+          'FTC Act Section 5'
+        ],
+        dataTypes,
+        complianceGaps: identifyComplianceGaps('US'),
+        recommendations: generateUSRecommendations(),
+        nextSteps: [
+          'Map data flows across state lines',
+          'Implement state-specific privacy controls',
+          'Establish vendor management program',
+          'Create algorithmic impact assessments',
+          'Develop consumer rights response procedures'
+        ]
+      });
+    } else if (isCA) {
+      const pipedaScore = calculatePIPEDAScore();
+      const industryScore = calculateIndustrySpecificScore();
+      const overallRisk = Math.round((100 - pipedaScore + 100 - industryScore) / 2);
+      
+      setComplianceScores({
+        type: 'CA',
+        jurisdiction: 'Canada',
+        pipedaScore,
+        industryScore,
+        overallRisk,
+        riskTier: overallRisk < 30 ? 'Low' : overallRisk < 60 ? 'Moderate' : 'High',
+        regulations: [
+          'PIPEDA',
+          'Provincial Privacy Laws',
+          ...(clientData.industry === 'healthcare' ? ['PHIPA'] : []),
+          'Bill C-27 (when enacted)'
+        ],
+        dataTypes,
+        complianceGaps: identifyComplianceGaps('CA'),
+        recommendations: generateCARecommendations(),
+        nextSteps: [
+          'Review PIPEDA compliance requirements',
+          'Assess provincial law obligations',
+          'Implement privacy policy updates',
+          'Establish consent management',
+          'Prepare for Bill C-27 requirements'
+        ]
+      });
+    } else if (isUK) {
+      const ukGdprScore = calculateUKGDPRScore();
+      const industryScore = calculateIndustrySpecificScore();
+      const overallRisk = Math.round((100 - ukGdprScore + 100 - industryScore) / 2);
+      
+      setComplianceScores({
+        type: 'UK',
+        jurisdiction: 'United Kingdom',
+        ukGdprScore,
+        industryScore,
+        overallRisk,
+        riskTier: overallRisk < 30 ? 'Low' : overallRisk < 60 ? 'Moderate' : 'High',
+        regulations: [
+          'UK GDPR',
+          'Data Protection Act 2018',
+          ...(clientData.industry === 'finance' ? ['FCA Regulations'] : []),
+          'AI Regulation (proposed)'
+        ],
+        dataTypes,
+        complianceGaps: identifyComplianceGaps('UK'),
+        recommendations: generateUKRecommendations(),
+        nextSteps: [
+          'Conduct UK GDPR gap analysis',
+          'Review ICO guidance on AI',
+          'Implement accountability measures',
+          'Establish UK representative if needed',
+          'Create age-appropriate design considerations'
         ]
       });
     }
+  };
+  
+  // Helper functions for compliance scoring
+  const calculateGDPRScore = () => {
+    let score = 50; // Base score
+    
+    if (clientData.stakeholderInterview.dataGovernance?.includes('consent')) score += 10;
+    if (clientData.stakeholderInterview.dataGovernance?.includes('retention')) score += 10;
+    if (clientData.currentTools.some(tool => tool.toLowerCase().includes('privacy'))) score += 15;
+    if (clientData.employees === '1' || clientData.employees === '2-5') score -= 10; // Small teams struggle more
+    if (clientData.techMaturity >= 3) score += 10;
+    if (clientData.budget === '<$5k' || clientData.budget === '$5k-$25k') score -= 15;
+    
+    return Math.max(20, Math.min(95, score));
+  };
+  
+  const calculateAIActScore = () => {
+    let score = 30; // Base score (AI Act is new)
+    
+    if (clientData.aiReadiness?.ethicalAI?.includes('fairness')) score += 15;
+    if (clientData.aiReadiness?.ethicalAI?.includes('transparency')) score += 15;
+    if (clientData.techMaturity >= 4) score += 20;
+    if (clientData.industry === 'healthcare' || clientData.industry === 'finance') score -= 10; // High-risk sectors
+    
+    return Math.max(15, Math.min(85, score));
+  };
+  
+  const calculateUSPrivacyScore = () => {
+    let score = 40; // Base score
+    
+    if (clientData.stakeholderInterview.dataGovernance?.includes('minimization')) score += 10;
+    if (clientData.currentTools.some(tool => tool.toLowerCase().includes('security'))) score += 15;
+    if (clientData.budget === '>$100k') score += 20;
+    if (clientData.techMaturity >= 3) score += 10;
+    
+    return Math.max(25, Math.min(90, score));
+  };
+  
+  const calculateHIPAAScore = () => {
+    let score = 50; // Base score for healthcare
+    
+    if (clientData.stakeholderInterview.dataGovernance?.includes('encryption')) score += 20;
+    if (clientData.stakeholderInterview.dataGovernance?.includes('access control')) score += 15;
+    if (clientData.employees === '16-50' || clientData.employees === '50+') score += 10;
+    
+    return Math.max(30, Math.min(95, score));
+  };
+  
+  const calculatePIPEDAScore = () => {
+    let score = 45; // Base score
+    
+    if (clientData.stakeholderInterview.dataGovernance?.includes('consent')) score += 15;
+    if (clientData.techMaturity >= 3) score += 15;
+    if (clientData.currentTools.length > 3) score += 10;
+    
+    return Math.max(30, Math.min(90, score));
+  };
+  
+  const calculateUKGDPRScore = () => {
+    let score = 48; // Base score
+    
+    if (clientData.stakeholderInterview.dataGovernance?.includes('accountability')) score += 12;
+    if (clientData.stakeholderInterview.dataGovernance?.includes('privacy by design')) score += 15;
+    if (clientData.techMaturity >= 3) score += 10;
+    
+    return Math.max(25, Math.min(92, score));
+  };
+  
+  const calculateIndustrySpecificScore = () => {
+    let score = 60; // Base score
+    
+    // Industry-specific adjustments
+    if (clientData.industry === 'healthcare') {
+      if (clientData.stakeholderInterview.processData?.includes('patient')) score -= 15;
+      if (clientData.currentTools.some(tool => tool.toLowerCase().includes('ehr'))) score += 10;
+    } else if (clientData.industry === 'finance') {
+      if (clientData.stakeholderInterview.processData?.includes('transaction')) score -= 10;
+      if (clientData.currentTools.some(tool => tool.toLowerCase().includes('kyc'))) score += 15;
+    } else if (clientData.industry === 'ecommerce') {
+      if (clientData.stakeholderInterview.processData?.includes('payment')) score -= 5;
+      if (clientData.currentTools.some(tool => tool.toLowerCase().includes('pci'))) score += 10;
+    }
+    
+    // Maturity and budget factors
+    if (clientData.techMaturity >= 4) score += 15;
+    if (clientData.budget === '>$100k') score += 10;
+    
+    return Math.max(20, Math.min(95, score));
+  };
+  
+  const identifyComplianceGaps = (jurisdiction) => {
+    const gaps = [];
+    
+    // Common gaps
+    if (!clientData.stakeholderInterview.dataGovernance?.includes('inventory')) {
+      gaps.push('No comprehensive data inventory or mapping');
+    }
+    if (!clientData.stakeholderInterview.dataGovernance?.includes('retention')) {
+      gaps.push('Missing data retention and deletion policies');
+    }
+    
+    // Jurisdiction-specific gaps
+    if (jurisdiction === 'EU') {
+      if (!clientData.stakeholderInterview.dataGovernance?.includes('dpia')) {
+        gaps.push('No Data Protection Impact Assessment (DPIA) process');
+      }
+      if (!clientData.stakeholderInterview.dataGovernance?.includes('privacy by design')) {
+        gaps.push('Privacy by design principles not implemented');
+      }
+      if (clientData.techMaturity < 3) {
+        gaps.push('Insufficient technical measures for GDPR compliance');
+      }
+    } else if (jurisdiction === 'US') {
+      if (!clientData.stakeholderInterview.dataGovernance?.includes('breach')) {
+        gaps.push('No breach notification procedures');
+      }
+      if (!clientData.currentTools.some(tool => tool.toLowerCase().includes('consent'))) {
+        gaps.push('Inadequate consent management for state laws');
+      }
+    }
+    
+    // Industry-specific gaps
+    if (clientData.industry === 'healthcare' && !clientData.stakeholderInterview.dataGovernance?.includes('audit')) {
+      gaps.push('Missing audit trails for health data access');
+    }
+    if (clientData.industry === 'finance' && !clientData.currentTools.some(tool => tool.toLowerCase().includes('monitoring'))) {
+      gaps.push('Insufficient transaction monitoring capabilities');
+    }
+    
+    return gaps;
+  };
+  
+  const generateEURecommendations = () => {
+    const recs = [
+      'Implement comprehensive GDPR-compliant consent management system',
+      'Establish Data Protection Officer (DPO) role or equivalent oversight',
+      'Create detailed Records of Processing Activities (ROPA)',
+      'Develop AI transparency documentation for EU AI Act compliance'
+    ];
+    
+    if (clientData.techMaturity < 3) {
+      recs.push('Upgrade technical infrastructure to support privacy controls');
+    }
+    
+    if (clientData.industry === 'healthcare') {
+      recs.push('Ensure AI systems meet Medical Device Regulation (MDR) requirements');
+    }
+    
+    if (selectedTier === 3) {
+      recs.push('Implement automated privacy rights fulfillment system');
+      recs.push('Deploy AI explainability tools for algorithmic decisions');
+      recs.push('Establish cross-border data transfer mechanisms (SCCs/BCRs)');
+    }
+    
+    return recs;
+  };
+  
+  const generateUSRecommendations = () => {
+    const recs = [
+      'Create state-by-state privacy compliance matrix',
+      'Implement universal opt-out mechanisms for all states',
+      'Establish comprehensive vendor assessment program',
+      'Develop algorithmic bias testing procedures'
+    ];
+    
+    if (clientData.industry === 'healthcare') {
+      recs.push('Ensure HIPAA-compliant AI data processing safeguards');
+      recs.push('Implement FDA-compliant validation for AI medical devices');
+    }
+    
+    if (clientData.industry === 'finance') {
+      recs.push('Implement SOX-compliant AI model governance');
+      recs.push('Ensure PCI DSS compliance for payment AI systems');
+    }
+    
+    if (selectedTier === 3) {
+      recs.push('Deploy automated privacy rights management platform');
+      recs.push('Implement real-time compliance monitoring dashboard');
+      recs.push('Create AI ethics board with external advisors');
+    }
+    
+    return recs;
+  };
+  
+  const generateCARecommendations = () => {
+    const recs = [
+      'Implement PIPEDA-compliant consent mechanisms',
+      'Establish privacy breach notification procedures',
+      'Create transparency reports for AI decision-making',
+      'Prepare for Bill C-27 AI and data requirements'
+    ];
+    
+    if (clientData.techMaturity < 3) {
+      recs.push('Upgrade systems to support meaningful consent');
+    }
+    
+    return recs;
+  };
+  
+  const generateUKRecommendations = () => {
+    const recs = [
+      'Align with ICO guidance on AI and data protection',
+      'Implement UK GDPR accountability measures',
+      'Create age-appropriate design for AI systems',
+      'Establish transparent AI decision-making processes'
+    ];
+    
+    if (clientData.industry === 'finance') {
+      recs.push('Ensure FCA compliance for AI in financial services');
+    }
+    
+    return recs;
   };
 
 // Updated Report Generation Function - Replace your existing one
@@ -1338,6 +1685,23 @@ const calculatePaybackMonths = () => {
                         <option value="finance">Finance</option>
                         <option value="education">Education</option>
                         <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Jurisdiction <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        value={clientData.jurisdiction}
+                        onChange={(e) => setClientData(prev => ({ ...prev, jurisdiction: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-600"
+                        required
+                      >
+                        <option value="US">United States</option>
+                        <option value="EU">European Union</option>
+                        <option value="CA">Canada</option>
+                        <option value="UK">United Kingdom</option>
+                        <option value="Other">Other</option>
                       </select>
                     </div>
                     <div>
@@ -2187,11 +2551,11 @@ const calculatePaybackMonths = () => {
               </div>
             )}
 
-            {/* Compliance Analysis */}
+            {/* Enhanced Compliance Analysis */}
             {activeTab === 'compliance' && tierConfigs[selectedTier].sections.includes('compliance') && (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold text-gray-900">Compliance Risk Assessment</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Comprehensive Compliance Analysis</h3>
                   <button
                     onClick={generateComplianceScores}
                     className="px-4 py-2 bg-yellow-700 text-white rounded-lg hover:bg-yellow-800"
@@ -2201,29 +2565,147 @@ const calculatePaybackMonths = () => {
                 </div>
 
                 {complianceScores && (
-                  <div className="border border-gray-200 rounded-lg p-6">
-                    <div className="flex items-center mb-4">
-                      <AlertTriangle className={`w-6 h-6 mr-2 ${
-                        complianceScores.riskTier === 'Low' ? 'text-green-500' :
-                        complianceScores.riskTier === 'Moderate' ? 'text-yellow-500' :
-                        'text-red-500'
-                      }`} />
-                      <h4 className="font-semibold text-gray-900">
-                        {complianceScores.type} Compliance Risk: {complianceScores.riskTier}
-                      </h4>
+                  <div className="space-y-6">
+                    {/* Overall Risk Assessment */}
+                    <div className="border border-gray-200 rounded-lg p-6">
+                      <div className="flex items-center mb-4">
+                        <AlertTriangle className={`w-6 h-6 mr-2 ${
+                          complianceScores.riskTier === 'Low' ? 'text-green-500' :
+                          complianceScores.riskTier === 'Moderate' ? 'text-yellow-500' :
+                          'text-red-500'
+                        }`} />
+                        <h4 className="font-semibold text-gray-900">
+                          {complianceScores.jurisdiction} Compliance Risk: {complianceScores.riskTier}
+                        </h4>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div className="text-center p-3 bg-gray-50 rounded">
+                          <div className="text-2xl font-bold text-gray-900">{complianceScores.overallRisk}%</div>
+                          <div className="text-sm text-gray-500">Overall Risk</div>
+                        </div>
+                        {complianceScores.type === 'EU' && (
+                          <>
+                            <div className="text-center p-3 bg-blue-50 rounded">
+                              <div className="text-2xl font-bold text-blue-600">{complianceScores.gdprScore}</div>
+                              <div className="text-sm text-gray-500">GDPR Score</div>
+                            </div>
+                            <div className="text-center p-3 bg-purple-50 rounded">
+                              <div className="text-2xl font-bold text-purple-600">{complianceScores.aiActScore}</div>
+                              <div className="text-sm text-gray-500">AI Act Score</div>
+                            </div>
+                          </>
+                        )}
+                        {complianceScores.type === 'US' && (
+                          <>
+                            <div className="text-center p-3 bg-blue-50 rounded">
+                              <div className="text-2xl font-bold text-blue-600">{complianceScores.piiScore}</div>
+                              <div className="text-sm text-gray-500">PII Score</div>
+                            </div>
+                            {complianceScores.hipaaScore > 0 && (
+                              <div className="text-center p-3 bg-green-50 rounded">
+                                <div className="text-2xl font-bold text-green-600">{complianceScores.hipaaScore}</div>
+                                <div className="text-sm text-gray-500">HIPAA Score</div>
+                              </div>
+                            )}
+                          </>
+                        )}
+                        <div className="text-center p-3 bg-orange-50 rounded">
+                          <div className="text-2xl font-bold text-orange-600">{complianceScores.industryScore}</div>
+                          <div className="text-sm text-gray-500">Industry Score</div>
+                        </div>
+                      </div>
+
+                      {/* Applicable Regulations */}
+                      <div className="mb-4">
+                        <h5 className="font-medium text-gray-900 mb-2">Applicable Regulations</h5>
+                        <div className="flex flex-wrap gap-2">
+                          {complianceScores.regulations.map((reg, i) => (
+                            <span key={i} className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                              {reg}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Data Types Processed */}
+                      <div className="mb-4">
+                        <h5 className="font-medium text-gray-900 mb-2">Data Types Processed</h5>
+                        <div className="flex flex-wrap gap-2">
+                          {complianceScores.dataTypes.map((type, i) => (
+                            <span key={i} className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm">
+                              {type}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                    
-                    <div className="bg-gray-50 rounded p-4">
-                      <h5 className="font-medium text-gray-900 mb-2">Priority Recommendations</h5>
-                      <ul className="space-y-1">
+
+                    {/* Compliance Gaps */}
+                    {complianceScores.complianceGaps && complianceScores.complianceGaps.length > 0 && (
+                      <div className="border border-red-200 rounded-lg p-6 bg-red-50">
+                        <h4 className="font-medium text-red-900 mb-2">Identified Compliance Gaps</h4>
+                        <ul className="space-y-1">
+                          {complianceScores.complianceGaps.map((gap, i) => (
+                            <li key={i} className="text-sm text-red-700 flex items-center">
+                              <AlertTriangle className="w-4 h-4 text-red-500 mr-2" />
+                              {gap}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Priority Recommendations */}
+                    <div className="border border-gray-200 rounded-lg p-6">
+                      <h4 className="font-medium text-gray-900 mb-4">Priority Compliance Recommendations</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {complianceScores.recommendations.map((rec, i) => (
-                          <li key={i} className="text-sm text-gray-700 flex items-center">
-                            <ChevronRight className="w-4 h-4 text-yellow-700 mr-2" />
-                            {rec}
-                          </li>
+                          <div key={i} className="bg-gray-50 rounded p-3">
+                            <div className="flex items-start">
+                              <ChevronRight className="w-4 h-4 text-yellow-700 mr-2 mt-0.5 flex-shrink-0" />
+                              <span className="text-sm text-gray-700">{rec}</span>
+                            </div>
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     </div>
+
+                    {/* Next Steps */}
+                    {complianceScores.nextSteps && (
+                      <div className="border border-blue-200 rounded-lg p-6 bg-blue-50">
+                        <h4 className="font-medium text-blue-900 mb-3">Recommended Next Steps</h4>
+                        <ol className="space-y-2">
+                          {complianceScores.nextSteps.map((step, i) => (
+                            <li key={i} className="text-sm text-blue-700 flex items-start">
+                              <span className="flex-shrink-0 w-6 h-6 bg-blue-200 text-blue-800 rounded-full flex items-center justify-center text-xs font-medium mr-3 mt-0.5">
+                                {i + 1}
+                              </span>
+                              {step}
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+
+                    {/* Tier 3 Enhanced Insights */}
+                    {selectedTier === 3 && complianceScores.recommendations.length > 6 && (
+                      <div className="border border-purple-200 rounded-lg p-6 bg-purple-50">
+                        <h4 className="font-medium text-purple-900 mb-2">
+                          🔬 Advanced Compliance Research (Tier 3)
+                        </h4>
+                        <p className="text-sm text-purple-700">
+                          Enhanced recommendations based on current regulatory developments and industry best practices.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!complianceScores && (
+                  <div className="text-center text-gray-500 py-12">
+                    <AlertTriangle className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                    <p>Click "Generate Assessment" to analyze compliance requirements for your client</p>
                   </div>
                 )}
               </div>
