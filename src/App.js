@@ -197,6 +197,274 @@ const AIAuditGenerator = () => {
     const isEnterprise = parseInt(clientData.employees) > 100;
     const budget = clientData.budget;
     
+// Perplexity API Integration for Tier 3 Advanced Research
+  const perplexityResearch = async (clientData, analysisType) => {
+    const PERPLEXITY_API_KEY = process.env.REACT_APP_PERPLEXITY_API_KEY;
+    
+    if (!PERPLEXITY_API_KEY) {
+      throw new Error('Perplexity API key not configured');
+    }
+
+    const researchPrompts = {
+      businessProblem: `Analyze AI implementation challenges for ${clientData.industry} companies with ${clientData.employees} employees. Focus on:
+      1. Common business problems requiring AI solutions
+      2. Measurable KPIs for AI ROI in this industry
+      3. Specific pain points: ${clientData.painPoints.join(', ')}
+      4. Budget considerations for ${clientData.budget} range
+      Provide actionable insights for defining clear business objectives.`,
+
+      dataStrategy: `Research data acquisition and preparation strategies for ${clientData.industry} with team size ${clientData.employees}. Consider:
+      1. Industry-specific data sources and types
+      2. Data quality challenges common in this sector
+      3. Feature engineering best practices
+      4. Data governance and compliance requirements
+      5. Technical debt considerations in existing data infrastructure
+      Focus on practical, implementable solutions.`,
+
+      eda: `Analyze exploratory data analysis approaches for ${clientData.industry} companies. Research:
+      1. Industry-specific data patterns and trends
+      2. Common biases in ${clientData.industry} data
+      3. Visualization techniques for business stakeholders
+      4. Tools and platforms suitable for ${clientData.employees} team size
+      5. Areas where additional data collection typically needed
+      Emphasize practical EDA workflows for business teams.`,
+
+      modelDevelopment: `Research AI model development strategies for ${clientData.industry} with budget ${clientData.budget}. Focus on:
+      1. Appropriate ML models for common ${clientData.industry} use cases
+      2. Model evaluation metrics relevant to business goals
+      3. Technical debt considerations in model selection
+      4. Development tools suitable for team size ${clientData.employees}
+      5. Performance benchmarks for this industry
+      Prioritize practical, proven approaches over cutting-edge research.`,
+
+      deployment: `Analyze AI deployment and implementation strategies for ${clientData.industry}. Research:
+      1. Production deployment best practices for ${clientData.employees} teams
+      2. Change management for AI adoption
+      3. Integration with existing systems and workflows
+      4. Monitoring and maintenance requirements
+      5. Technical debt mitigation during deployment
+      6. Actionable insights generation from model outputs
+      Focus on sustainable, long-term implementation approaches.`
+    };
+
+    try {
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${PERPLEXITY_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-sonar-large-128k-online',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are an expert AI implementation consultant. Provide practical, actionable insights based on current industry research and real-world implementations. Focus on proven solutions over theoretical approaches.'
+            },
+            {
+              role: 'user',
+              content: researchPrompts[analysisType]
+            }
+          ],
+          max_tokens: 1500,
+          temperature: 0.3
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Perplexity API error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      return {
+        analysis: result.choices[0].message.content,
+        sources: result.citations || [],
+        timestamp: new Date().toISOString()
+      };
+
+    } catch (error) {
+      console.error('Perplexity research error:', error);
+      throw error;
+    }
+  };
+
+  // Enhanced MCDA Analysis with Perplexity Research
+  const calculateAdvancedMCDA = async () => {
+    if (selectedTier !== 3) {
+      calculateMCDA(); // Use regular MCDA for Tiers 1-2
+      return;
+    }
+
+    try {
+      // Show loading state
+      setMcdaAnalysis({ loading: true });
+
+      // Conduct Perplexity research across all 5 areas
+      const researchResults = await Promise.all([
+        perplexityResearch(clientData, 'businessProblem'),
+        perplexityResearch(clientData, 'dataStrategy'),
+        perplexityResearch(clientData, 'eda'),
+        perplexityResearch(clientData, 'modelDevelopment'),
+        perplexityResearch(clientData, 'deployment')
+      ]);
+
+      // Enhanced weights for Tier 3 analysis
+      const enhancedWeights = {
+        technicalFit: 0.25,
+        budgetAlignment: 0.20,
+        riskLevel: 0.20,
+        strategicImpact: 0.15,
+        vendorStability: 0.10,
+        technicalDebt: 0.10  // New criterion
+      };
+
+      // Filter solutions for Tier 3 with technical debt considerations
+      const tier3Solutions = solutionsDatabase.map(solution => ({
+        ...solution,
+        technicalDebt: calculateTechnicalDebtScore(solution, clientData),
+        researchInsights: extractRelevantInsights(solution, researchResults)
+      }));
+
+      const scoredSolutions = tier3Solutions.map(solution => {
+        const compositeScore = (
+          solution.technicalFit * enhancedWeights.technicalFit +
+          solution.budgetAlignment * enhancedWeights.budgetAlignment +
+          solution.riskLevel * enhancedWeights.riskLevel +
+          solution.strategicImpact * enhancedWeights.strategicImpact +
+          solution.vendorStability * enhancedWeights.vendorStability +
+          solution.technicalDebt * enhancedWeights.technicalDebt
+        );
+
+        return {
+          ...solution,
+          compositeScore: parseFloat(compositeScore.toFixed(2)),
+          confidence: compositeScore >= 4.2 ? 'High' : compositeScore >= 3.8 ? 'Moderate' : 'Low'
+        };
+      });
+
+      const topSolutions = scoredSolutions
+        .filter(s => s.compositeScore >= 3.5)
+        .sort((a, b) => b.compositeScore - a.compositeScore)
+        .slice(0, 10);
+
+      setMcdaAnalysis({
+        solutions: topSolutions,
+        portfolioScore: parseFloat((topSolutions.reduce((sum, s) => sum + s.compositeScore, 0) / topSolutions.length).toFixed(2)),
+        totalImplementationMonths: Math.max(...topSolutions.map(s => s.implementationMonths)),
+        expectedROI: Math.round(topSolutions.reduce((sum, s) => sum + s.estimatedROI, 0) / topSolutions.length),
+        riskLevel: assessOverallRisk(topSolutions),
+        researchInsights: researchResults,
+        technicalDebtAssessment: assessTechnicalDebt(clientData),
+        aiImplementationFramework: generateImplementationFramework(researchResults),
+        loading: false
+      });
+
+    } catch (error) {
+      console.error('Advanced MCDA analysis failed:', error);
+      setMcdaAnalysis({ 
+        error: 'Research analysis failed. Using standard MCDA.',
+        loading: false 
+      });
+      calculateMCDA(); // Fallback to standard analysis
+    }
+  };
+
+  // Technical Debt Assessment
+  const calculateTechnicalDebtScore = (solution, clientData) => {
+    let score = 4.0; // Start with neutral score
+
+    // Assess based on current tools and infrastructure
+    const hasLegacySystems = clientData.painPoints.some(point => 
+      point.toLowerCase().includes('legacy') || 
+      point.toLowerCase().includes('outdated') ||
+      point.toLowerCase().includes('manual')
+    );
+
+    if (hasLegacySystems) {
+      score -= 0.5; // Legacy systems increase technical debt risk
+    }
+
+    // Team size considerations
+    const teamSize = parseInt(clientData.employees) || 5;
+    if (teamSize < 10 && solution.category.includes('Enterprise')) {
+      score -= 0.3; // Complex solutions may create debt for small teams
+    }
+
+    // Integration complexity
+    if (solution.name.toLowerCase().includes('integration') || 
+        solution.name.toLowerCase().includes('platform')) {
+      score += 0.2; // Integration solutions often reduce technical debt
+    }
+
+    return Math.max(1.0, Math.min(5.0, score));
+  };
+
+  // Extract relevant insights from research
+  const extractRelevantInsights = (solution, researchResults) => {
+    const relevantInsights = researchResults
+      .filter(research => research.analysis.toLowerCase().includes(
+        solution.category.toLowerCase().split(' ')[0]
+      ))
+      .map(research => research.analysis.substring(0, 200) + '...');
+
+    return relevantInsights.length > 0 ? relevantInsights[0] : 
+      'No specific research insights found for this solution category.';
+  };
+
+  // Assess overall portfolio risk
+  const assessOverallRisk = (solutions) => {
+    const avgConfidence = solutions.reduce((sum, s) => {
+      const confScore = s.confidence === 'High' ? 3 : s.confidence === 'Moderate' ? 2 : 1;
+      return sum + confScore;
+    }, 0) / solutions.length;
+
+    return avgConfidence >= 2.5 ? 'Low' : avgConfidence >= 2.0 ? 'Moderate' : 'High';
+  };
+
+  // Technical debt assessment
+  const assessTechnicalDebt = (clientData) => {
+    const debtIndicators = [
+      { indicator: 'Manual processes', present: clientData.painPoints.some(p => p.toLowerCase().includes('manual')) },
+      { indicator: 'Legacy systems', present: clientData.painPoints.some(p => p.toLowerCase().includes('legacy')) },
+      { indicator: 'Data silos', present: clientData.painPoints.some(p => p.toLowerCase().includes('silo') || p.toLowerCase().includes('separate')) },
+      { indicator: 'Outdated tools', present: clientData.painPoints.some(p => p.toLowerCase().includes('outdated')) }
+    ];
+
+    const debtScore = debtIndicators.filter(d => d.present).length;
+    
+    return {
+      score: debtScore,
+      level: debtScore >= 3 ? 'High' : debtScore >= 2 ? 'Moderate' : 'Low',
+      indicators: debtIndicators.filter(d => d.present).map(d => d.indicator),
+      recommendations: generateDebtRecommendations(debtScore)
+    };
+  };
+
+  // Generate implementation framework
+  const generateImplementationFramework = (researchResults) => {
+    return {
+      phase1: 'Business Problem Definition & Data Assessment (Weeks 1-4)',
+      phase2: 'Data Preparation & Exploratory Analysis (Weeks 5-8)', 
+      phase3: 'Model Development & Validation (Weeks 9-16)',
+      phase4: 'Deployment & Integration (Weeks 17-20)',
+      phase5: 'Monitoring & Optimization (Ongoing)',
+      keyInsights: researchResults.map(r => r.analysis.split('\n')[0]).slice(0, 3)
+    };
+  };
+
+  // Debt recommendations
+  const generateDebtRecommendations = (debtScore) => {
+    const recommendations = {
+      0: ['Maintain current systems', 'Focus on incremental improvements'],
+      1: ['Address identified inefficiency', 'Plan for gradual modernization'],
+      2: ['Prioritize automation initiatives', 'Develop integration strategy'],
+      3: ['Immediate technical debt reduction needed', 'Consider phased system replacement'],
+      4: ['Critical technical debt situation', 'Comprehensive modernization required']
+    };
+    
+    return recommendations[Math.min(debtScore, 4)];
+  };
+
     // Filter solutions based on tier and budget
     let filteredSolutions = solutionsDatabase.filter(solution => {
       if (selectedTier === 1) {
