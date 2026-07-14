@@ -20,7 +20,6 @@ The AI Audit Generator is a professional tool designed to streamline the process
   - Automation Workflows
   - ROI Calculator
   - 12-Page Action Plan
-  - 48-72 hours turnaround
 
 - **Tier 2 - Small Business Growth Pack** ($375)
   - Full Process Mapping
@@ -28,7 +27,6 @@ The AI Audit Generator is a professional tool designed to streamline the process
   - MCDA Scoring
   - Integration Roadmap
   - 20-Page Strategic Report
-  - 5-7 days turnaround
 
 - **Tier 3 - SMB Transformation Suite** ($750)
   - Complete MCDA Analysis
@@ -36,7 +34,6 @@ The AI Audit Generator is a professional tool designed to streamline the process
   - Compliance Assessment
   - Custom Implementation Plan
   - 35-Page Executive Report
-  - 10-14 days turnaround
 
 ### 💼 Core Functionality
 - **Client Discovery**: Comprehensive intake form for capturing business details
