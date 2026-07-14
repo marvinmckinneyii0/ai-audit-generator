@@ -17,7 +17,7 @@ The AI Audit Generator is a professional tool designed to streamline the process
 - **Tier 1 - Solopreneur Automation Sprint** ($150)
   - Quick Process Audit
   - 3-5 No-Code Solutions
-  - n8n/Zapier Workflows
+  - Automation Workflows
   - ROI Calculator
   - 12-Page Action Plan
   - 48-72 hours turnaround
