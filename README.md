@@ -1,6 +1,6 @@
 # AI Audit Generator App
 
-A comprehensive React-based AI audit generator for Savvy Analytics that helps businesses identify and implement automation solutions through tiered service offerings.
+A comprehensive AI audit generator for Savvy Analytics that helps businesses identify and implement automation solutions through tiered service offerings.
 
 ![Savvy Analytics](https://img.shields.io/badge/Savvy%20Analytics-AI%20Audit%20Generator-yellow)
 ![React](https://img.shields.io/badge/React-18.2.0-blue)
